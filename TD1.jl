@@ -183,23 +183,22 @@ end
 
 #Exercice 7
 
+function is_prime_tmp(memoire, j)
+    limite = sqrt(j)
+    for prime in memoire
+        j%prime==0 && return false
+        prime>limite && break
+    end
+    return true
+end
+
 function isprime_memoize(n)
-    memoire = zeros(Bool, n)
-    for j in 1:n
-        #isprime = true
-        #for i in 2:round(Int, sqrt(j))
-        #    if j%i == 0 
-        #        isprime = false
-        #    end
-        #end
-        memoire[j] = isprime_naive(j)
+    memoire = Int64[2]
+    for j in 3:n
+        is_prime_tmp(memoire, j) && push!(memoire, j)
     end
 
-    function isprime(n)
-        return memoire[n]
-    end
-
-    isprime
+    return memoire[end] == n, length(memoire) #memoire[n_memoire] == n, 
 end
 
 #Premier / pas premier ?
