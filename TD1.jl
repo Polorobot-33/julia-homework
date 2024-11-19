@@ -205,3 +205,244 @@ end
 #16372007 Oui
 #16372009 Oui
 #16372011 Non
+
+#Exercice 8
+
+"""
+    knapsack_glouton_1(N::Int)
+
+    algoritme glouton pour le probleme du sac à dos
+    priorise la valeur des objets
+"""
+function knapsack_glouton_1(N)
+    weights = [i + i÷2 + 2(i%2) - i%3 for i in 1:N]
+    costs = [3i for i in 1:N]
+    indices = reverse(sortperm(costs))
+
+    wmax = N^2÷2
+
+    sac = Int16[]
+    weight = 0
+    cost = 0
+    for i in 1:N
+        w = weights[indices[i]]
+        if weight + w > wmax
+            break;
+        else 
+            weight += w;
+            push!(sac, indices[i])
+            cost += costs[indices[i]]
+        end
+    end
+
+    return sac, cost, weight, wmax
+end
+
+"""
+    knapsack_glouton_2(N::Int)
+
+    algoritme glouton pour le probleme du sac à dos
+    priorise la masse minimale
+"""
+function knapsack_glouton_2(N)
+    weights = [i + i÷2 + 2(i%2) - i%3 for i in 1:N]
+    indices = sortperm(weights)
+    costs = [3i for i in 1:N]
+
+    wmax = N^2÷2
+
+    sac = Int16[]
+    weight = 0
+    cost = 0
+    for i in 1:N
+        w = weights[indices[i]]
+        if weight + w > wmax
+            break;
+        else 
+            weight += w;
+            push!(sac, indices[i])
+            cost += costs[indices[i]]
+        end
+    end
+
+    return sac, cost, weight, wmax
+end
+
+
+"""
+    knapsack_glouton_3(N::Int)
+
+    algoritme glouton pour le probleme du sac à dos
+    priorise le rapport valeur/masse
+"""
+function knapsack_glouton_3(N)
+    weights = [i + i÷2 + 2(i%2) - i%3 for i in 1:N]
+    costs = [3i for i in 1:N]
+    indices = reverse(sortperm(costs ./ weights))
+
+    wmax = N^2÷2
+
+    sac = Int16[]
+    weight = 0
+    cost = 0
+    for i in 1:N
+        w = weights[indices[i]]
+        if weight + w > wmax
+            break;
+        else 
+            weight += w;
+            push!(sac, indices[i])
+            cost += costs[indices[i]]
+        end
+    end
+
+    return sac, cost, weight, wmax
+end
+
+"""
+    knapsack_glouton_1(N::Int)
+
+    algoritme dynamique pour le probleme du sac à dos
+"""
+function knapsack_memo(N)
+    weights = [i + i÷2 + 2(i%2) - i%3 for i in 1:N]
+    costs = [3i for i in 1:N]
+    wmax = N^2÷2
+
+    opt = Array{Tuple{Vector{Int32}, Int32}, 2}(undef, N, wmax)
+    #initialisation du tableau
+    for w in 1:wmax
+        if weights[1] <= w
+            opt[1, w] = ([1], costs[1])
+        else
+            opt[1, w] = ([], 0)
+        end
+    end
+
+    #remplissage du tableau
+    for i in 2:N
+        for w in 1:wmax
+            if w-weights[i] < 0
+                opt[i, w] = opt[i-1, w]
+                continue
+            end
+
+            child_weight = w-weights[i]
+            cost = (child_weight == 0 ? 0 : opt[i-1, child_weight][2]) + costs[i]#on teste pour éviter d'avoir des w == 0
+            if cost < opt[i-1, w][2]
+                opt[i, w] = (copy(opt[i-1, w][1]), opt[i-1, w][2])
+            else
+                old_sac = child_weight == 0 ? [] : copy(opt[i-1, child_weight][1])
+                push!(old_sac, i)
+                opt[i, w] = (old_sac, cost)
+            end
+        end
+    end
+
+    return opt[N, wmax]
+end
+
+
+
+#Exercice 9
+const REFCHARS = [Char.(33:126); Char.(192:255); 'α':'ω']
+# Cette opération initialise une Array{Char, 1} qui contient 
+# tous les caractères de 33 à 126 et de 192 à 255 ainsi que l'alphabet greques
+
+using Random
+# ?randstring
+# Cette fonction renvoie une chaine de caractères aléatoires
+# de taille n avec des caractères pris dans une liste définie (optionnel)
+
+"""
+    str0() -> String
+
+    génère une chaîne de 100000000 charactères aléatoires de REFCHARS
+"""
+function str0()
+    return randstring(REFCHARS, 100000000)
+end
+
+"""
+    plus_longue_chaine_sans_chiffre(str::String) -> String
+"""
+function plus_longue_chaine_sans_chiffre(str::String)
+    max_chaine = ""
+    max_len = 0
+    
+    chaine = ""
+    len = 0
+    
+    for c in str
+        if (Int(c) >= 48) & (Int(c) <= 57) #On vérifie que le caractère n'est pas un chiffre
+            if len > max_len
+                max_chaine = chaine
+                max_len = len
+            end
+            chaine = ""
+            len = 0
+        else
+            chaine *= c
+            len += 1
+        end
+    end
+
+    # besoin d'une dernière vérification si la dernière chaine vérifiée est la plus longue
+    return (len > max_len) ? chaine : max_chaine
+end
+
+
+"""
+    nb_ASCII(str0::String) -> Int
+"""
+function nb_ASCII(str0::String)
+    count = 0
+    for c in str0
+        count += Int(Int(c) <= 127)
+    end
+    return count
+end
+
+# nb_ASCII(str0())
+# > 51359043
+# proportion de caractères ASCII dans str0 : 0.51359043
+# proportion théorique : 0.51648352... = 94/182
+
+"""
+    nb_ASCII(str0::String) -> Int
+"""
+function lettres_consecutives(str::String)
+    previous = Char(0) #Char(0) n'appartient pas à REFCHARS
+    count = 0
+    for c in str
+        if c == previous
+            count += 1
+        end
+        previous = c
+    end
+    return count
+end
+
+# lettres_consecutives("eldfjvhjnfcmzzmlkkkdmqù")
+# > 3
+# lettres_consecutives(str0())
+# > 547127
+
+"""
+    ispalindrome(str::String) -> boolean
+"""
+function ispalindrome(str::String)
+    reversed = reverse(str)
+    for tup in zip(str, reversed)
+        tup[begin] == tup[end] || return false
+    end
+
+    return true
+end
+
+# ispalindrome("engagelejeuquejelegagne")
+# > true
+# ispalindrome("kayak")
+# > true
+# ispalindrome("poisson")
+# > false
