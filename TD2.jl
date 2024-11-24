@@ -21,11 +21,11 @@ function Base.pop!(s::Stack)
     x
 end
 
-function Base.length(s::Stack)
+function length(s::Stack)
     s.len
 end
 
-function Base.peek(s::Stack)
+function peek(s::Stack)
     s.data[end]
 end
 
@@ -145,4 +145,62 @@ function exemple_graph()
         add_edge!(sg, edge)
     end
     sg
+end
+
+function isoriented(sg::SimpleGraph) 
+    sg.n_aretes % 2 == 0 || return true
+    for i in 1:nv(sg)
+        for j in sg.neighbors[i]
+            (i in sg.neighbors[j]) || return true;
+        end
+    end
+    return false;
+end
+
+"""
+    notconnectedto(g::SimpleGraph, s::Int) :: Vector{Int}
+
+    renvoie tous les sommets de g inaccessibles depuis le sommet s
+"""
+function notconnectedto(g::SimpleGraph, s::Int)
+    stack = Stack{Int}()
+    unexplored = [true for i=1:nv(g)]
+    push!(stack, s)
+
+    while (length(stack) > 0)
+        vertex = pop!(stack)
+
+        #a vertex may be have been added multiple times on the stack by the previous layer
+        #in this case, just ignore the future occurences
+        if ~unexplored[vertex] continue; end;
+
+        unexplored[vertex] = false
+        for i in g.neighbors[vertex]
+            unexplored[i] && push!(stack, i)
+        end
+    end
+
+    return [v for v=1:nv(g) if unexplored[v]]
+end
+
+function isincycle(g::SimpleGraph, s)
+    stack = Stack{Int}()
+    unexplored = [true for i=1:nv(g)]
+    push!(stack, s)
+
+    while length(stack) > 0
+        vertex = pop!(stack)
+
+        #a vertex may be have been added multiple times on the stack by the previous layer
+        #in this case, just ignore the future occurences
+        if ~unexplored[vertex] continue; end;
+
+        unexplored[vertex] = false
+        for i in g.neighbors[vertex]
+            if i == s; return true; end;
+            unexplored[i] && push!(stack, i)
+        end
+    end
+
+    return false;
 end
