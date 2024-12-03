@@ -9,22 +9,39 @@ mutable struct Stack{T}
     end
 end
 
-function Base.push!(s::Stack, x) 
-    push!(s.data, x)
+"""
+    push!(::Stack, ::Any)
+    Ajoute un élément sur un stack
+"""
+function push!(s::Stack, x) 
+    Base.push!(s.data, x)
     s.len += 1
     s
 end
 
-function Base.pop!(s::Stack)
-    x = pop!(s.data)
+"""
+    pop!(::Stack)
+    Supprime le dernier element d'un stack et le renvoie
+"""
+function pop!(s::Stack)
+    if s.len == 0 return; end;
+    x = Base.pop!(s.data)
     s.len -= 1
     x
 end
 
+"""
+    length(::Stack)
+    renvoie la hauteur du stack
+"""
 function length(s::Stack)
     s.len
 end
 
+"""
+    peek(::Stack)
+    renvoie le dernier element du stack
+"""
 function peek(s::Stack)
     s.data[end]
 end
@@ -33,17 +50,20 @@ end
 
 # Exercice 2
 
+
 mutable struct Queue{T}
     data::Vector{T}
     Queue{T}() where {T} = new{T}(T[])
 end
 
-function Base.push!(q::Queue, x)
-    push!(q.data, x)
+function push!(q::Queue, x)
+    Base.push!(q.data, x)
+    q
 end
 
-function Base.pop!(q::Queue)
-    return popfirst!(q.data)
+function pop!(q::Queue)
+    if size(q.data)[1] == 0 return; end;
+    Base.popfirst!(q.data)
 end
 
 #Les méthodes pop! et push! sur une Queue sont de même complexité de Base.pop! et Base.push!, 
@@ -70,6 +90,10 @@ mutable struct LinkedList{T}
 
 end
 
+"""
+    LinkedList{T}(::Vector{T}) where {T}
+    crée une LinkedList de type T contenant les éléments du Vector{T} en paramètre.
+"""
 function LinkedList{T}(l::Vector{T}) where {T}
     if Base.length(l) == 0 return LinkedList{T}(); end;
     list = LinkedList{T}()
@@ -79,6 +103,10 @@ function LinkedList{T}(l::Vector{T}) where {T}
     return list
 end
 
+"""
+    length(::LinkedList)
+    renvoie la longueur de la liste, en complexité linéaire
+"""
 function length(ll::LinkedList)
     len = 0
     list = ll
@@ -89,7 +117,10 @@ function length(ll::LinkedList)
     return len
 end
 
-
+"""
+    minimim(::LinkedList)
+    renvoie le minimum de la liste
+"""
 function minimum(ll::LinkedList)
     if ll.next === ll
         return Inf
@@ -102,6 +133,7 @@ end
 # Je n'arrive malheureusement pas à trouver la complexité des fonctions de base de julia...
 
 # Exercice 4
+
 mutable struct SimpleGraph
     neighbors::Array{Vector{Int}, 1}
     n_sommets::Int
@@ -115,14 +147,26 @@ mutable struct SimpleGraph
     end
 end
 
+"""
+    nv(::SimpleGraph)
+    renvoie le nombre de sommets
+"""
 function nv(sg::SimpleGraph)
     return sg.n_sommets
 end
 
+"""
+    ne(::SimpleGraph)
+    renvoie le nombre d'arêtes
+"""
 function ne(sg::SimpleGraph)
     return sg.n_aretes
 end
 
+"""
+    add_vertices!(::SimpleGraph, n)
+    ajoute un sommet au graphe
+"""
 function add_vertices!(sg::SimpleGraph, n)
     sg.n_sommets += n
     for i in 1:n 
@@ -130,6 +174,10 @@ function add_vertices!(sg::SimpleGraph, n)
     end
 end
 
+"""
+    add_edge!(::SimpleGraph, Tuple{Int, Int})
+    ajoute une arête entre deux sommets du graphe
+"""
 function add_edge!(sg::SimpleGraph, edge::Tuple{Int, Int})
     maximum(edge) <= nv(sg) || return false
     if edge[2] in sg.neighbors[edge[1]] return false; end
@@ -138,6 +186,9 @@ function add_edge!(sg::SimpleGraph, edge::Tuple{Int, Int})
     return true
 end
 
+"""
+    initialise le graphe d'exemple du TD
+"""
 function exemple_graph()
     sg = SimpleGraph()
     add_vertices!(sg, 8)
@@ -147,6 +198,10 @@ function exemple_graph()
     sg
 end
 
+"""
+    isoriented(::SimpleGraph)
+    donne le caractère orienté du graphe
+"""
 function isoriented(sg::SimpleGraph) 
     sg.n_aretes % 2 == 0 || return true
     for i in 1:nv(sg)
@@ -159,7 +214,6 @@ end
 
 """
     notconnectedto(g::SimpleGraph, s::Int) :: Vector{Int}
-
     renvoie tous les sommets de g inaccessibles depuis le sommet s
 """
 function notconnectedto(g::SimpleGraph, s::Int)
@@ -183,6 +237,10 @@ function notconnectedto(g::SimpleGraph, s::Int)
     return [v for v=1:nv(g) if unexplored[v]]
 end
 
+"""
+    isincycle(::SimpleGraph, ::Int)
+    Renvoie true si le sommet d'indice spécifié fait partie d'un cycle 
+"""
 function isincycle(g::SimpleGraph, s)
     stack = Stack{Int}()
     unexplored = [true for i=1:nv(g)]
@@ -204,3 +262,11 @@ function isincycle(g::SimpleGraph, s)
 
     return false;
 end
+
+# Tous les sommets sont visités si le graphe est connexe.
+
+# Il est possible d'affaiblir cette condition : 
+# tous les sommets sont visités si tous les sommets 
+# sont accessibles depuis le sommet initial (noté s dans les fonctions précédentes),
+# il n'y a nécessaire que le trajet inverse existe.
+
