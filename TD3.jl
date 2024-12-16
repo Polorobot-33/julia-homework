@@ -25,6 +25,9 @@ using GLMakie
 # ╔═╡ be7d70b1-b625-49e1-9fdb-2e49a2378fd2
 using Unitful
 
+# ╔═╡ 8f6412af-c474-45d2-8db1-3dbb7d8c7233
+using Makie
+
 # ╔═╡ 3a5c22b8-997f-42e5-ac5b-29eedae0f05c
 md"""
 ## Exercice 1
@@ -89,20 +92,320 @@ l((3, 4))
 # ╔═╡ fa70ebf9-8c28-4d99-8647-2e55478d6041
 function forces(p::Pendulum, point)
 	longueur = l(point)
-	f_ressort = point .* (p.k * (l0/longueur - 1))
-	f_gravitation = (0, 9.81*p/m)
+	if longueur == 0
+		f_ressort = (0u"N", 0u"N")
+	else
+		f_ressort = point .* (p.k * (p.l0/longueur - 1))
+	end
+	f_gravitation = (0u"N", 9.81u"m/s^2"*p.m)
 	return f_ressort .+ f_gravitation
+end
+
+# ╔═╡ 8f4d7d4c-fc20-4012-8161-a8cb8113e140
+function potentialenergy(p::Pendulum, point)
+	elastic = 0.5 * p.k * (p.l0 .- l(point))^2
+	gravity = -9.81u"m/s^2" * p.m * point[2]
+	return elastic + gravity
+end
+
+# ╔═╡ 58ccf8ff-223e-48b3-a260-ea5885a3bd4b
+function kineticenergy(p::Pendulum, vel)
+	return 0.5 * p.m * l(vel)^2
+end
+
+# ╔═╡ 80cf42b0-6553-4a59-ac2e-6153da5945ac
+import Makie.ColorSchemes as CS
+
+# ╔═╡ 4165468d-fe95-4393-a359-1f2601122368
+function draw(p::Pendulum, point)
+	f = Figure()
+	ax = Axis(f[1,1], aspect = DataAspect(), limits=(-1, 1, -1, 1))
+
+	lx = [0, ustrip(u"m", point[1])]
+    ly = [0, ustrip(u"m", point[2])]
+	extension = min((l(point) - p.l0) / p.l0 + 1, 2) / 2.
+	color = CS.diverging_bkr_55_10_c35_n256[extension]
+	lines!(ax, lx, ly; color)
+	f
+end
+
+# ╔═╡ 9766974c-b2b6-4c33-b7fe-e461abf17125
+@bind testx PlutoUI.Slider(-1:0.1:1, show_value=true)
+
+# ╔═╡ d5ea2be5-8eea-487a-873b-6bc603503a6c
+@bind testy PlutoUI.Slider(-1:0.1:1, show_value=true)
+
+# ╔═╡ 062d3cf9-ac4a-403f-94c5-6129dbaaf357
+let p = Pendulum(1u"kg", 0.5u"cm", 1u"J/m^2")
+	draw(p, ((testx)u"m", (testy)u"m"))
+end
+
+# ╔═╡ e743cc5e-905a-4aed-aeb5-fd7da96aa539
+md"""
+### Protocole d'intégration
+1. Calculer la somme des forces au temps t
+2. Calculer l'accélération : `acc = somme_forces / pendulum.m`
+3. calculer la vitesse au temps t+dt avec un shéma d'intégration (ici Euler Explicite)
+4. Actualiser la position au temps t+dt en utilisant de nouveau le shéma d'intégration
+5. répéter depuis l'étape 1 jusqu'au temps souhaité
+
+Il convient donc de créer des variables Tuples Position et Vitesse pour les réutiliser dans l'intégration.
+"""
+
+# ╔═╡ 76e30700-035c-48d3-953c-037dc78ddc14
+md"""
+On remarque que l'énergie n'est pas constante alors que le système devrait être conservatif.
+"""
+
+# ╔═╡ 255aebbb-4b85-4f14-b9ee-c6a80b68d579
+md"""
+La variation d'énergie du système est quasiment nulle, ce schéma d'intégration permet de conserver l'énergie du système.
+"""
+
+# ╔═╡ acb05fd7-fb0b-4d71-9782-7daabc6e95f2
+function draw_simulation(p::Pendulum, output)
+	f = Figure()
+	ax = Axis(f[1,1], aspect = DataAspect(), limits=(-1, 1, -1, 1))
+	
+	positions = (l -> (ustrip(u"m", l[1][1]), ustrip(u"m", l[1][2]))).(output)
+
+	point = Observable((0.0, 0.0))
+	color = Observable(CS.diverging_bkr_55_10_c35_n256[0.0])
+	
+	lx = @lift [0, $point[1]]
+	ly = @lift [0, - $point[2]]
+	
+	lines!(ax, lx, ly; color)
+	
+	record(f, "animation.mp4", 1:10:length(output)) do frame
+    	point[] = positions[frame]
+		extension = min((l(positions[frame])u"m" - p.l0) / p.l0 + 1, 2) / 2.
+		color[] = CS.diverging_bkr_55_10_c35_n256[extension]
+	end
+end
+
+# ╔═╡ c83fcb56-d4d3-4db3-b213-7deaf696253c
+md"""
+# Pendule multiple
+"""
+
+# ╔═╡ ef95c6e2-3fcc-4ca0-8e3c-447cbf6654f4
+struct PendulumSequence{Tm, Tl0, Tk}
+	pendulums::Vector{Pendulum{Tm, Tl0, Tk}}
+end
+
+# ╔═╡ 84cebff4-1a3f-41dd-9774-b1b2e3ace5ca
+function Fressort(p::Pendulum, point) 
+	longueur = l(point)
+	if longueur == 0
+		f_ressort = [0u"N", 0u"N"]
+	else
+		f_ressort = point .* (p.k * (p.l0/longueur - 1))
+	end
+	return f_ressort
+end
+
+# ╔═╡ 9650ded0-e737-4b74-8ef7-3a6ba776366b
+function forces(ps::PendulumSequence, point)
+	prev_point = [0.0u"m", 0.0u"m"]
+	forces = fill([0.0u"N", 0.0u"N"], length(point))
+	
+	for i in 1:length(ps.pendulums)
+		p = ps.pendulums[i]
+		
+		f_ressort = Fressort(p, point[i] .- prev_point)
+
+		if i != length(ps.pendulums)
+			f_ressort .-= Fressort(ps.pendulums[i+1], point[i+1] .- point[i])
+		end
+
+		prev_point = point[i]
+		f_gravitation = [0u"N", 9.81u"m/s^2"*p.m]
+		forces[i] = f_ressort .+ f_gravitation
+	end
+	return forces
+end
+
+# ╔═╡ 5e8e894f-ea2a-4e9c-a091-aa8197bb6468
+function euler_integration(p::Pendulum, initial_point, initial_velocity, δt, total_time)
+	pairs = Any[(initial_point, initial_velocity)]
+	
+	for t in (0u"s"):δt:total_time
+		somme_forces = forces(p, pairs[end][1])
+		acc = somme_forces ./ p.m
+		next_vel = pairs[end][2] .+ δt .* acc
+		next_pos = pairs[end][1] .+ δt .* next_vel
+		push!(pairs, (next_pos, next_vel))
+	end
+
+	pairs
+end
+
+# ╔═╡ 4720433f-7edf-4b84-9bd9-03d0be3fcb5b
+let p = Pendulum(1u"kg", 20u"cm", 100u"J/m^2"), δt = 1u"ms", t_max=5u"s"
+	initial_point = (-p.l0, 0u"m")
+	#k = 100 J/m2, l0 = 20 cm, m = 1 kg
+	
+	pairs = euler_integration(p, initial_point, (0u"m/s", 0u"m/s"), δt, t_max)
+	x_position = (l -> ustrip(u"m", l[1][1])).(pairs)
+	times = [t for t in 0u"s":δt:t_max+δt]
+	
+	f = Figure()
+	ax = Axis(f[1, 1])
+	lines!(ax, times, x_position)
+
+	energy = (pair -> potentialenergy(p, pair[1]) + kineticenergy(p, pair[2])).(pairs)
+	en = Axis(f[2, 1])
+	lines!(en, times, energy)
+
+	f
+end
+
+# ╔═╡ e1ac268b-fce7-42f3-a699-5fe7f29684d6
+function verlet_integration(p::Pendulum, initial_point, initial_velocity, δt, total_time)
+	pairs = Any[(initial_point, initial_velocity)]
+	
+	for t in (0u"s"):δt:total_time
+		x_t, v_t = pairs[end]
+		
+		a_t = forces(p, x_t) ./ p.m
+		x_tplusδt = x_t .+ v_t.*δt .+ (1/2).*a_t.*(δt^2)
+
+		a_tplusδt = forces(p, x_tplusδt) ./ p.m
+		v_tplusδt = v_t .+ (a_t .+ a_tplusδt)./2 .* δt
+		
+		push!(pairs, (x_tplusδt, v_tplusδt))
+	end
+
+	pairs
+end
+
+# ╔═╡ 1b5915b1-723c-467e-8534-03bce1b04d50
+function verlet_integration(ps::PendulumSequence, initial_points, initial_velocities, δt, total_time)
+	N = length(initial_points)
+	pairs = (Any[initial_points], Any[initial_velocities])
+
+	for t in (0u"s"):δt:total_time
+		x_t, v_t = pairs[1][end], pairs[2][end]
+		m = (p -> p.m).(ps.pendulums)
+		
+		a_t = forces(ps, x_t) ./ m
+		x_tplusδt = [x_t[i] .+ v_t[i].*δt .+ (1/2).*a_t[i].*(δt^2) for i in 1:N]
+
+		a_tplusδt = forces(ps, x_tplusδt) ./ m
+		v_tplusδt = [v_t[i] .+ (a_t[i] .+ a_tplusδt[i])./2 .* δt for i in 1:N]
+		
+		push!(pairs[1], x_tplusδt)
+		push!(pairs[2], v_tplusδt)
+	end
+
+	pairs
+end
+
+# ╔═╡ 88c09ed6-ef44-4879-bd34-f93426b5e5c1
+let p = Pendulum(1u"kg", 20u"cm", 100u"J/m^2"), δt = 1u"ms", t_max=1u"minute"
+	initial_point = (-p.l0, 0u"m")
+	#k = 100 J/m2, l0 = 20 cm, m = 1 kg
+	
+	pairs = verlet_integration(p, initial_point, (0u"m/s", 0u"m/s"), δt, t_max)
+	x_position = (l -> ustrip(u"m", l[1][1])).(pairs)
+	times = [t for t in 0u"s":δt:t_max+δt]
+	
+	f = Figure()
+	ax = Axis(f[1, 1])
+	lines!(ax, times, x_position)
+
+	energy = (pair -> potentialenergy(p, pair[1]) + kineticenergy(p, pair[2])).(pairs)
+	en = Axis(f[2, 1])
+	lines!(en, times, energy)
+
+	f
+end
+
+# ╔═╡ bbaf74c9-8df7-497a-ba65-a573962b543a
+function draw_xevolution(ax, p::Pendulum, δt, t_max, initial_point, initial_velocity)
+	pairs = verlet_integration(p, initial_point, initial_velocity, δt, t_max)
+	x_position = (l -> ustrip(u"m", l[1][1])).(pairs)
+	times = [t for t in 0u"s":δt:t_max+δt]
+	
+	lines!(ax, times, x_position)
+end
+
+# ╔═╡ 3f86d135-0b75-4257-ac65-80363142ffdb
+let f = Figure()
+	ax = Axis(f[1, 1])
+	
+	δt = 1u"ms"
+	t_max = 10u"s"
+
+	for k in 100:10:150
+		p = Pendulum(1u"kg", 20u"cm", (k)u"J/m^2")
+		draw_xevolution(ax, p, δt, t_max, (-p.l0, 0u"m"), (0u"m/s", 0u"m/s"))
+	end
+		
+	f
+end
+
+# ╔═╡ d9e5ece2-d5bd-4803-80ae-25dc3d5d40b0
+function draw_simulation(ps::PendulumSequence, output)
+	f = Figure()
+	ax = Axis(f[1,1], aspect = DataAspect(), limits=(-1, 1, -1.5, 1.5))
+
+	N = length(output[1][1])
+	
+	positions = (p -> (l->(ustrip(u"m", l[1]), ustrip(u"m", l[2]))).(p)).(output[1])
+
+	point = Observable(positions[1])
+	color = Observable(fill(CS.diverging_bkr_55_10_c35_n256[0.5], N))
+	
+	lx = @lift pushfirst!([$point[i][1] for i in 1:N], 0)
+	ly = @lift pushfirst!([-$point[i][2] for i in 1:N], 0)
+	color_final = @lift pushfirst!($color, CS.diverging_bkr_55_10_c35_n256[0.5])
+	
+	lines!(ax, lx, ly; color=color_final)
+	
+	record(f, "animation2.mp4", 1:10:length(positions)) do frame
+    	point[] = positions[frame]
+		p = ps.pendulums
+		extension = [(l(positions[frame][i])u"m" - p[i].l0) / p[i].l0 for i in 1:N]
+		clamp = [min(extension[i] + 1, 2) / 2. for i in 1:N]
+		color[] = [CS.diverging_bkr_55_10_c35_n256[clamp[i]] for i in 1:N]
+	end
+end
+
+# ╔═╡ 5bc4289b-5531-4ae6-b3ff-8a87d60d9342
+let p = Pendulum(1u"kg", 20u"cm", 100u"J/m^2"), δt = 1u"ms", t_max=10u"s"
+	initial_point = (-p.l0, 0u"m")
+	#k = 100 J/m2, l0 = 20 cm, m = 1 kg
+	
+	pairs = verlet_integration(p, initial_point, (0u"m/s", 0u"m/s"), δt, t_max)
+	draw_simulation(p, pairs)
+end
+
+# ╔═╡ 5fa1e214-d0c1-4053-a879-a890bc71694d
+let δt = 1u"ms", t_max=10u"s"
+	p1 = Pendulum(1u"kg", 20u"cm", 100u"J/m^2")
+	p2 = Pendulum(1u"kg", 20u"cm", 100u"J/m^2")
+	ps = PendulumSequence([p1, p2])
+	
+	initial_points = [[-p1.l0, 0u"m"], [-p1.l0*2, 0u"m"]]
+	initial_velocities = [[0u"m/s", 0u"m/s"], [0u"m/s", 0u"m/s"]]
+	
+	pairs = verlet_integration(ps, initial_points, initial_velocities, δt, t_max)
+	draw_simulation(ps, pairs)
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
 GLMakie = "~0.10.17"
+Makie = "~0.21.17"
 PlutoUI = "~0.7.60"
 Unitful = "~1.21.1"
 """
@@ -113,7 +416,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.1"
 manifest_format = "2.0"
-project_hash = "058b230007c8de3a4e4b99027a16ca0b92716024"
+project_hash = "de0265db7933bcea859cb5282f4be756314837c6"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1747,7 +2050,7 @@ version = "1.4.1+1"
 
 # ╔═╡ Cell order:
 # ╠═a273204e-b708-11ef-1a81-13930cef2555
-# ╠═3a5c22b8-997f-42e5-ac5b-29eedae0f05c
+# ╟─3a5c22b8-997f-42e5-ac5b-29eedae0f05c
 # ╠═c26182db-0211-40a7-a3a6-88527a879594
 # ╠═f20fccae-5b15-4a11-a9a2-a50d25937f36
 # ╠═fa0205df-e358-4590-8c63-f1d5ee61d2f4
@@ -1764,5 +2067,31 @@ version = "1.4.1+1"
 # ╠═6b1d708a-d40f-4395-b2bf-183fb73c712a
 # ╠═97ad7dc1-21eb-4e5c-8da5-c681fd34b3a4
 # ╠═fa70ebf9-8c28-4d99-8647-2e55478d6041
+# ╠═8f4d7d4c-fc20-4012-8161-a8cb8113e140
+# ╠═58ccf8ff-223e-48b3-a260-ea5885a3bd4b
+# ╠═80cf42b0-6553-4a59-ac2e-6153da5945ac
+# ╠═4165468d-fe95-4393-a359-1f2601122368
+# ╠═062d3cf9-ac4a-403f-94c5-6129dbaaf357
+# ╠═9766974c-b2b6-4c33-b7fe-e461abf17125
+# ╠═d5ea2be5-8eea-487a-873b-6bc603503a6c
+# ╟─e743cc5e-905a-4aed-aeb5-fd7da96aa539
+# ╠═5e8e894f-ea2a-4e9c-a091-aa8197bb6468
+# ╠═4720433f-7edf-4b84-9bd9-03d0be3fcb5b
+# ╟─76e30700-035c-48d3-953c-037dc78ddc14
+# ╠═e1ac268b-fce7-42f3-a699-5fe7f29684d6
+# ╠═88c09ed6-ef44-4879-bd34-f93426b5e5c1
+# ╟─255aebbb-4b85-4f14-b9ee-c6a80b68d579
+# ╠═bbaf74c9-8df7-497a-ba65-a573962b543a
+# ╠═3f86d135-0b75-4257-ac65-80363142ffdb
+# ╠═8f6412af-c474-45d2-8db1-3dbb7d8c7233
+# ╠═acb05fd7-fb0b-4d71-9782-7daabc6e95f2
+# ╠═5bc4289b-5531-4ae6-b3ff-8a87d60d9342
+# ╟─c83fcb56-d4d3-4db3-b213-7deaf696253c
+# ╠═ef95c6e2-3fcc-4ca0-8e3c-447cbf6654f4
+# ╠═84cebff4-1a3f-41dd-9774-b1b2e3ace5ca
+# ╠═9650ded0-e737-4b74-8ef7-3a6ba776366b
+# ╠═1b5915b1-723c-467e-8534-03bce1b04d50
+# ╠═5fa1e214-d0c1-4053-a879-a890bc71694d
+# ╠═d9e5ece2-d5bd-4803-80ae-25dc3d5d40b0
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
