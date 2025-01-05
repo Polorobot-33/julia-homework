@@ -142,3 +142,27 @@ function print(tree::BinaryTree)
     #   |-6
     #   |-7
 end
+
+# Exercice 4
+
+function testHeap(n::Int) 
+    return Heap{Int}([i for i in 1:n])
+end
+
+"""
+    testRandomHeap(n::Int)
+
+returns a vector of n random integers between min (included) and max (excluded)
+"""
+function randomArray(n::Int, min::Int, max::Int) 
+    return Int.(trunc.(rand(n) .* (max - min)) .+ min)
+end
+
+function testHeapSort()
+    #=for i in 1:10000
+    
+    end=#
+    l = randomArray(12, 0, 10)
+    println(l)
+    println(heap_sort(l))
+end

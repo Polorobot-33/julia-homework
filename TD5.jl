@@ -2,7 +2,7 @@
 
 abstract type AbstractTree{T} end
 
-struct Tree{T} <: AbstractTree{T}
+mutable struct Tree{T} <: AbstractTree{T}
     element::T
     branches::Vector{Tree{T}}
 end
@@ -46,7 +46,7 @@ end
 
 # Un arbre binaire est équivalent à une liste chaînée si chaque noeud possède exactement un sous-noeud
 
-struct BinaryTree{T} <: AbstractTree{T}
+mutable struct BinaryTree{T} <: AbstractTree{T}
     element::T
     branches::Vector{BinaryTree{T}}
 
@@ -122,12 +122,12 @@ function isheap(tree::BinaryTree)
     return true
 end
 
-struct Heap{T} <: AbstractTree{T}
+mutable struct Heap{T} <: AbstractTree{T}
     elements::Vector{T}
 end
 
 function root(heap::Heap)
-    return heap.elements[0]
+    return heap.elements[1]
 end
 
 function isInBranch(i, n)
@@ -170,22 +170,63 @@ function Base.push!(h::Heap{T}, x::T) where {T}
     push!(h.elements, x)
 
     current = length(h.elements)
-    while (h.elements[current] < h.elements[current ÷ 2]) && (current != 1)
-        h.elements[current], h.elements[current ÷ 2] = h.elements[current ÷ 2], h.elements[current]
+    while (h.elements[current] < h.elements[max(current ÷ 2, 1)]) && (current != 1)
+        h.elements[current], h.elements[max(current ÷ 2, 1)] = h.elements[max(current ÷ 2, 1)], h.elements[current]
         current ÷= 2
+        current = max(current, 1)
     end
 end
 
 function Base.pop!(h::Heap)
     root_ = root(h)
-    h.elements[1] = pop!(h.elements)
+    last_elem = pop!(h.elements)
+    L = length(h.elements)
+
+    L == 0 && return root_
+
+    h.elements[1] = last_elem
 
     current = 1
-    while (h.elements[current] < h.elements[2 * current]) || (h.elements[current] < h.elements[2 * current + 1])
-        if 
-            
+    child1 = 2 * current
+    child2 = 2 * current + 1
+    while (child1 <= L && (h.elements[current] > h.elements[child1])) || (child2 <= L && (h.elements[current] > h.elements[child2]))
+        if child2 > L || h.elements[child1] < h.elements[child2]
+            h.elements[child1], h.elements[current] = h.elements[current], h.elements[child1]
+            current = child1
         else
-
+            h.elements[child2], h.elements[current] = h.elements[current], h.elements[child2]
+            current = child2
         end
+
+        child1 = 2 * current
+        child2 = 2 * current + 1
     end
+
+    return root_
+end
+
+function Base.length(h::Heap)
+    return length(h.elements)
+end
+
+function Base.minimum(h::Heap)
+    return minimum(h.elements)
+end
+
+# La complexité de cette fonction est la même que Base.minimum(::eltype(h.elements))
+# Ainsi sa complexité doit être linéaire (si je ne me trompe pas...)
+
+function heap_sort(arr::Vector{T}) where {T}
+    h = Heap{T}(T[])
+
+    for elem in arr
+        push!(h, elem)
+    end
+
+    sorted = T[]
+    while length(h) > 0
+        push!(sorted, pop!(h))
+    end
+
+    sorted
 end
