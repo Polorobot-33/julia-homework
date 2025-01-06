@@ -2,23 +2,39 @@
 
 abstract type AbstractTree{T} end
 
-mutable struct Tree{T} <: AbstractTree{T}
+struct Tree{T} <: AbstractTree{T}
     element::T
     branches::Vector{Tree{T}}
 end
 
+"""
+    root(tree::Tree)
+"""
 function root(tree::Tree)
     tree.element
 end
 
+"""
+    subtrees(tree::Tree)
+"""
 function subtrees(tree::Tree)
     tree.branches
 end
 
+"""
+    children(tree::AbstractTree)
+
+Returns the roots of the subtrees of tree
+"""
 function children(tree::AbstractTree)
     [root(t) for t in subtrees(tree)]
 end
 
+"""
+    Base.iterate(tree::AbstractTree, chain::Union{Int, Tuple(Vector{AbstractTree}, Int)})
+
+Iterator over all the elements of an AbstractTree
+"""
 function Base.iterate(tree::AbstractTree, chain=-1)
     #initialisation
     if chain == -1
@@ -46,7 +62,7 @@ end
 
 # Un arbre binaire est équivalent à une liste chaînée si chaque noeud possède exactement un sous-noeud
 
-mutable struct BinaryTree{T} <: AbstractTree{T}
+struct BinaryTree{T} <: AbstractTree{T}
     element::T
     branches::Vector{BinaryTree{T}}
 
@@ -55,14 +71,26 @@ mutable struct BinaryTree{T} <: AbstractTree{T}
     end
 end
 
+"""
+    root(tree::BinaryTree)
+"""
 function root(tree::BinaryTree)
     tree.element
 end
 
+"""
+    subtrees(tree::BinaryTree)
+"""
 function subtrees(tree::BinaryTree)
     tree.branches
 end
 
+"""
+    BinaryTree{T}(l::Vector) where {T}
+
+External constructor for the type BinaryTree generating a BinaryTree
+from the Vector{T} l
+"""
 function BinaryTree{T}(l::Vector) where {T}
     L = length(l)
 
@@ -95,6 +123,11 @@ end
 
 
 # Nécessaire pour utiliser collect()
+"""
+    Base.length(tree::BinaryTree)
+
+returns the total number of nodes of the tree
+"""
 function Base.length(tree::BinaryTree)
     subTrees = subtrees(tree)
     sum = 1
@@ -108,6 +141,11 @@ end
 
 #Exercice 4
 
+"""
+    isheap(tree::BinaryTree)
+
+Returns true if the BinaryTree represents a heap
+"""
 function isheap(tree::BinaryTree)
     #On ne vérifie pas ici le caractère complet de l'arbre
 
@@ -126,10 +164,20 @@ mutable struct Heap{T} <: AbstractTree{T}
     elements::Vector{T}
 end
 
+"""
+    root(heap::Heap)
+"""
 function root(heap::Heap)
     return heap.elements[1]
 end
 
+"""
+    isInBranch(i::Int, n::Int)
+
+Returns true if the element of index i belongs to the branch n of a heap
+(index i==1 represents the root)
+n is therefore choosen between 1 and 2
+"""
 function isInBranch(i, n)
     i == 1 && return false
     exponent = trunc(Int, log2(i))
@@ -138,6 +186,9 @@ function isInBranch(i, n)
     ((i % base) < (base/2)) ⊻ (n == 2)
 end
 
+"""
+    subtrees(heap::Heap)
+"""
 function subtrees(heap::Heap)
     subtree1 = [x for (i, x) in enumerate(heap.elements) if isInBranch(i, 1)]
     subtree2 = [x for (i, x) in enumerate(heap.elements) if isInBranch(i, 2)]
@@ -146,7 +197,15 @@ function subtrees(heap::Heap)
     return [Heap{T}(subtree1), Heap{T}(subtree2)]
 end
 
+"""
+    Heap{T}(tree::BinaryTree) where {T}
+
+External constructor for the type Heap, creating a Heap from the BinaryTree tree
+"""
 function Heap{T}(tree::BinaryTree) where {T}
+    # check if the tree can represent a heap
+    isheap(tree) || return nothing
+
     queue = [tree]
     elements = []
 
@@ -162,6 +221,12 @@ function Heap{T}(tree::BinaryTree) where {T}
     return Heap{T}(elements)
 end
 
+"""
+    BinaryTree{T}(heap::Heap) where {T}
+
+External constructor for the type BinaryTree,
+creating a BinaryTree from a heap Heap
+"""
 function BinaryTree{T}(heap::Heap) where {T}
     return BinaryTree{T}(heap.elements)
 end
@@ -177,6 +242,12 @@ function Base.push!(h::Heap{T}, x::T) where {T}
     end
 end
 
+"""
+    Base.pop!(h::Heap)
+
+Returns the root of a heap, and removes it from the heap
+while conservating its heap properties
+"""
 function Base.pop!(h::Heap)
     root_ = root(h)
     last_elem = pop!(h.elements)
@@ -205,10 +276,18 @@ function Base.pop!(h::Heap)
     return root_
 end
 
+"""
+    Base.length(h::Heap)
+
+Returns the number of elements in the Heap h
+"""
 function Base.length(h::Heap)
     return length(h.elements)
 end
 
+"""
+    Base.minimum(h::Heap)
+"""
 function Base.minimum(h::Heap)
     return minimum(h.elements)
 end
@@ -216,7 +295,13 @@ end
 # La complexité de cette fonction est la même que Base.minimum(::eltype(h.elements))
 # Ainsi sa complexité doit être linéaire (si je ne me trompe pas...)
 
-function heap_sort(arr::Vector{T}) where {T}
+"""
+    heapSort(arr::Vector{T}) where {T}
+
+Returns a sorted array in the ascendent order of the input array arr
+using the heap sort algorithm
+"""
+function heapSort(arr::Vector{T}) where {T}
     h = Heap{T}(T[])
 
     for elem in arr
@@ -230,3 +315,34 @@ function heap_sort(arr::Vector{T}) where {T}
 
     sorted
 end
+
+# Exercice 5
+
+struct InverseSyracuseTree <: AbstractTree{Int}
+    element::Int
+end
+
+"""
+    root(tree::InverseSyracuseTree)
+"""
+function root(tree::InverseSyracuseTree)
+    return tree.element
+end
+
+"""
+    subtrees(tree::InverseSyracuseTree)
+"""
+function subtrees(tree::InverseSyracuseTree)
+    if root(tree) == 1
+        return [InverseSyracuse(2)]
+    else
+        if (root(tree) - 1) % 3 == 0 && ((root(tree) - 1) ÷ 3) % 2 == 1
+            return [root(tree) * 2, (root(tree) - 1) ÷ 3]
+        else
+            return [root(tree) * 2]
+        end
+    end
+end
+
+# Un arbre inverse de syracuse est (à priori) de taille infinie tel qu'il est défini.
+# Il faut donc trouver un critère d'arrêt pour l'itération

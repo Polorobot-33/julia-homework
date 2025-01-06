@@ -164,5 +164,5 @@ function testHeapSort()
     end=#
     l = randomArray(12, 0, 10)
     println(l)
-    println(heap_sort(l))
+    println(heapSort(l))
 end
