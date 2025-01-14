@@ -25,7 +25,7 @@ using Random
 # ╔═╡ c0b97cd2-4e9a-4749-b11f-26227c9dbf01
 using Optimization, ModelingToolkit
 
-# ╔═╡ 2935dcc5-212c-4c83-9aba-13c295d91b1d
+# ╔═╡ 4cb55920-ee3f-408b-8c4c-070bf7c4573a
 using OptimizationOptimJL
 
 # ╔═╡ e8766382-cd08-11ef-3307-a7a8aab84282
@@ -140,7 +140,7 @@ end
 # ╔═╡ 0d731cda-269f-4086-87d7-78035cdf417d
 function randomPos(N)
 	# Répartition initiale : positions aléatoires autour de la sphère
-	x = []
+	x = Float64[]
 	
 	for i in 1:N
 		pos = rand(Float64, 3)#map(rand, (Float64, Float64, Float64))
@@ -182,23 +182,23 @@ function myConstraint(res, x, p)
 end
 
 # ╔═╡ 4d4bb13f-51f3-4f45-ba0e-c5f94fa21ffb
-let N = 3
+function thomson(N::Int)
 	x0 = randomPos(N)
-	lowercons = fill(0.0, N)
+	lowercons = fill(1.0, N)
 	uppercons = fill(1.0, N)
-	lb, ub = fill(-1.0, 3*N), fill(1.0, 3*N)
-
-	cost(x, p) = sum(abs.(x))
-	cons(res, x, p) = (res .= abs.(x))
+	lb, ub = fill(-1.1, 3*N), fill(1.1, 3*N)
+	_p = (0.0)
 	
-	f = OptimizationFunction(#=energyTot=#cost, Optimization.AutoForwardDiff()#=, cons=cons, myConstraint=#)
-	prob = OptimizationProblem(f, x0, nothing; lb, ub)#, lcons=lowercons, ucons=uppercons)
-	sol = solve(prob, IPNewton())#Optimization.LBFGS())
+	f = OptimizationFunction(energyTot, AutoForwardDiff(), cons=myConstraint)
+	prob = OptimizationProblem(f, x0, _p, lb=lb, ub=ub, lcons=lowercons, ucons=uppercons)
+	sol = solve(prob, IPNewton())
 
-	#solution=#
+	(sol.u, energyTot(sol.u, nothing))
 end
 
 # ╔═╡ e0c25c85-5f67-45ca-8a99-0a82e78638a3
+# ╠═╡ disabled = true
+#=╠═╡
 let
 	rosenbrock(x, p) = (p[1] - x[1])^2 + p[2] * (x[2] - x[1]^2)^2
 	x0 = zeros(2)
@@ -211,46 +211,25 @@ let
 	sol = solve(prob, IPNewton())
 	sol.u
 end
+  ╠═╡ =#
 
 # ╔═╡ 4c0870e5-a060-46e0-9226-32282ba55ecb
-# ╠═╡ disabled = true
-#=╠═╡
-let N = 3
-	@variables x = randomPos(N)
+let F = Figure(), N = 8
+	ax = Axis3(F[1, 1], aspect = (1,1,1), viewmode=:fit)
+
+	sol, energy = thomson(N)
+	x = [sol[i] for i in 1:3:length(sol)]
+	y = [sol[i] for i in 2:3:length(sol)]
+	z = [sol[i] for i in 3:3:length(sol)]
+
+	mesh!(ax, Makie.Sphere(Point3f(0), 1.0), alpha=0.1, transparency=true)
+	points = scatter!(ax, x, y, z, markersize=20, color=:red)
+
+	Label(F[0, :], "Répartition des électrons sur la sphère unité minisant l'énergie totale")
+	Legend(F[1, 2], [points], ["électrons"])
 	
-	ucons = fill(1.0, N)
-	vcons = fill(1.0, N)
-	lb, ub = fill(-1.0, N), fill(1.0, N)
-
-	cost = energyTot(x, nothing)
-
-	cons = [myConstraint(x) ~ 1.0]
-	@named os = OptimizationSystem(cost, [x], []; constraints=cons)
-	#prob = OptimizationProblem(os, [y => 2.0], [b => 100.0])
-	prob = OptimizationProblem(os, [], grad = true, hess = true)
-	
-	solution = solve(prob, Optim.ParticleSwarm())#Optimization.LBFGS())
+	F
 end
-  ╠═╡ =#
-
-# ╔═╡ d9187bd3-2c1c-41f0-b7ad-89b8e095f73b
-# ╠═╡ disabled = true
-#=╠═╡
-let
-@variables begin
-    x = 0.14, [bounds = (-2.0, 2.0)]
-    y = 0.14, [bounds = (-1.0, 3.0)]
-end
-@parameters a=1.0 b=100.0
-rosenbrock = (a - x)^2 + b * (y - x^2)^2
-cons = [
-    x^2 + y^2 ≲ 1
-]
-@mtkbuild sys = OptimizationSystem(rosenbrock, [x, y], [a, b], constraints = cons)
-prob = OptimizationProblem(sys, [], grad = true, hess = true, cons_j = true, cons_h = true)
-u_opt = solve(prob, IPNewton())
-end
-  ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -3089,10 +3068,9 @@ version = "1.4.1+1"
 # ╠═12995767-ed1b-499e-bdd3-b96d09a92356
 # ╠═6a1e5f37-1680-46d0-8dd2-999a46c9a388
 # ╠═d59a818c-8afe-412c-a547-34a6818fa3a6
+# ╠═4cb55920-ee3f-408b-8c4c-070bf7c4573a
 # ╠═4d4bb13f-51f3-4f45-ba0e-c5f94fa21ffb
 # ╠═e0c25c85-5f67-45ca-8a99-0a82e78638a3
 # ╠═4c0870e5-a060-46e0-9226-32282ba55ecb
-# ╠═d9187bd3-2c1c-41f0-b7ad-89b8e095f73b
-# ╠═2935dcc5-212c-4c83-9aba-13c295d91b1d
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
