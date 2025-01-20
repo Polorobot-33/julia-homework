@@ -2,11 +2,24 @@
 
 using CSV, DataFrames
 
+"""
+    loadDataFrame()
+
+permet de visualiser le contenu de la dataframe et de s'assurer
+que le fichier est bien chargé
+"""
 function loadDataFrame()
     df = CSV.read("fr-219200730-prenoms.csv", DataFrame)
 end
 
-function question1()
+"""
+    prenom_le_plus_commun()
+
+renvoie une tuple contenant le prenom le plus donné à Suresnes entre 2010 et 2021,
+ainsi que son nombre d'occurence.
+Cette méthode utilise un dictionnaire pour la comptabilisation.
+"""
+function prenom_le_plus_commun()
     df = loadDataFrame()
     #selection from 2010 to 2021
     selection = df[(df.annee .>= 2010) .&& (df.annee .<= 2021), "prenom"]
@@ -28,7 +41,14 @@ function question1()
     maxName, max
 end
 
-function question1Bis()
+"""
+    prenom_le_plus_commun_bis()
+
+renvoie une tuple contenant le prenom le plus donné à Suresnes entre 2010 et 2021,
+ainsi que son nombre d'occurence.
+Cette méthode utilise uniquement les opérations sur les DataFrames
+"""
+function prenom_le_plus_commun_bis()
     df = loadDataFrame()
 
     gb = combine(groupby(df, "prenom"), nrow)
@@ -36,6 +56,11 @@ function question1Bis()
     gb.prenom[info[2]], info[1]
 end
 
+"""
+   proportion_prenoms_epycenes()
+   
+renvoie la proportion de prénoms épycènes dans l'ensemble des différents prénoms donnés.
+"""
 function proportion_prenoms_epycenes()
     df = loadDataFrame()
 
@@ -45,6 +70,12 @@ function proportion_prenoms_epycenes()
     count_epicenes / nrow(unique(df, ["prenom"]))
 end
 
+"""
+    generate_firstname(::Int)
+
+renvoie un prénom aléatoire de probabilité proportionnelle à sa fréquence
+de l'année year
+"""
 function generate_firstname(year)
     df = loadDataFrame()
     names = df[df.annee .== year, "prenom"]
@@ -55,6 +86,11 @@ end
 
 # Exercice 3
 
+"""
+    loadAndDisplay()
+
+charge et affiche le contenu du fichier "pathways.txt" 
+"""
 function loadAndDisplay()
     open("pathways.txt", "r") do io
         for l in eachline(io)
@@ -63,6 +99,12 @@ function loadAndDisplay()
     end
 end
 
+"""
+    loadPaths()
+
+charge le contenu du fichier "pathways.txt"
+et renvoie ses caractères sous forme d'une matrice.
+"""
 function loadPaths()
     path = Char[]
     width, height = 0, 0
@@ -79,6 +121,11 @@ function loadPaths()
     permutedims(reshape(path, (height, width)))
 end
 
+"""
+    findD(::Matrix{Char})
+
+renvoie les coordonnées x et y de l'unique caractère D
+"""
 function findD(path::Matrix{Char})
     for j = 1:size(path,2)
         for i = 1:size(path,1)
@@ -92,6 +139,12 @@ const RIGHT = 1
 const DOWN = 2
 const LEFT = 3
 
+"""
+    connected(::Char, ::Char, ::Int)
+
+renvoie true si on peut aller de la tuile tile1 à la tuile t2 selon la direction direction
+et false sinon.
+"""
 function connected(tile1::Char, tile2::Char, direction::Int)
     if direction == UP
       return (tile1 == '┃' || tile1 == '┛' || tile1 == '┗') && (tile2 == '┃' || tile2 == '┏' || tile2 == '┓')
@@ -116,7 +169,13 @@ function oppositeDir(direction)
     (direction + 2) % 4
 end
 
-function mainPathLength()
+"""
+    main_path_length()
+
+calcule la longueur de la boucle principale passant par 'D',
+et donne aussi le nombre de cases avec des passages droits
+"""
+function main_path_length()
     path = loadPaths()
     D = findD(path)
 
@@ -130,7 +189,13 @@ function mainPathLength()
     println("Le chemin principal fait $(len) cases de long et contient $(count) passages droits")
 end
 
-function furthestPoint()
+"""
+    furthest_point()
+
+affiche les coordonnées et le caractère du point le plus loin de D
+dans le chemin principal
+"""
+function furthest_point()
     path = loadPaths()
     D = findD(path)
 
@@ -144,12 +209,20 @@ function furthestPoint()
     println("Le point le plus éloigné de D est $c aux coordonnées ($x, $y) et il se trouve à une distance de $(L ÷ 2)")
 end
 
+# struct utilisée pour réaliser l'itérateur sur le chemin principal
 struct FollowPath
     path::Matrix
     start_direction::Int
     start::Tuple{Int, Int}
 end
 
+"""
+    Base.iterate(::FollowPath, ::Union{Int, Tuple{Tuple{Int, Int}, Int}})
+
+itérateur sur l'ensemble du chemin débutant à la position f.start
+vers la direction f.start_direction
+L'itération s'arrête lorsqu'il n'y a plus de chemin à suivre
+"""
 function Base.iterate(f::FollowPath, state=0)
     if state == 0
         x, y = f.start .+ offset(f.start_direction)
