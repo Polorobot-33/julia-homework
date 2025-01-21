@@ -1,3 +1,5 @@
+# TD réalisé en binôme avec Arthur Climaud
+
 #Exercice 1
 
 using CSV, DataFrames
